@@ -12,6 +12,7 @@ export const WELL_KNOWN_ACME_CHALLENGE_GET: RouteOptions<any, any, any, any> = {
 
     if (!certificateSigningRequest) {
       reply.status(404).send({
+        fqdn: request.headers.host,
         message: 'unable to find certificate signing request',
       });
 

@@ -91,6 +91,10 @@ export async function saveCertificateSigningRequest(certificateSigningRequest: {
   challenge: HttpChallenge;
   token: string;
 }> {
+  const fqdn: string =
+    certificateSigningRequest.order.identifiers.find((x) => x.type === 'dns')
+      ?.value || '';
+
   const container = await getContainer();
 
   const collection = container.db.collection<{
@@ -101,12 +105,12 @@ export async function saveCertificateSigningRequest(certificateSigningRequest: {
     token: string;
   }>('certificate-signing-requests');
 
+  await collection.deleteMany({ fqdn });
+
   await collection.insertOne({
     authorization: certificateSigningRequest.authorization.url,
     challenge: certificateSigningRequest.challenge.url,
-    fqdn:
-      certificateSigningRequest.order.identifiers.find((x) => x.type === 'dns')
-        ?.value || '',
+    fqdn,
     order: certificateSigningRequest.order.url,
     token: certificateSigningRequest.token,
   });
