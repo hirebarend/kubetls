@@ -1,4 +1,33 @@
 apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Release.Name }}-service-account
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ .Release.Name }}-role
+  namespace: default
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["create", "get", "list", "watch", "update", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ .Release.Name }}-role-binding
+  namespace: default
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ .Release.Name }}-role
+subjects:
+- kind: ServiceAccount
+  name: {{ .Release.Name }}-service-account
+  namespace: default
+---
+apiVersion: v1
 kind: Secret
 metadata:
   name: {{ .Release.Name }}-secret
@@ -11,6 +40,10 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ .Release.Name }}-deployment
+  annotations:
+    keel.sh/policy: force
+    keel.sh/trigger: poll
+    keel.sh/pollSchedule: "@every 5m"
 spec:
   replicas: 1
   revisionHistoryLimit: 0
@@ -29,6 +62,7 @@ spec:
       annotations:
         deployment-timestamp: "{{ now }}"
     spec:
+      serviceAccountName: {{ .Release.Name }}-service-account
       containers:
       - name: {{ .Release.Name }}
         image: ghcr.io/{{ .Values.USERNAME }}/kubetls:main
@@ -66,11 +100,9 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: {{ .Release.Name }}-ingress
+  annotations:
+      nginx.ingress.kubernetes.io/hsts: "false"
 spec:
-  tls:
-  - hosts:
-    - {{ .Values.HOST }}
-    secretName: {{ replace "." "-" .Values.HOST }}-secret
   rules:
     - host: "{{ .Values.HOST }}"
       http:

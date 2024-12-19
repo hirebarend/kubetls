@@ -10,36 +10,31 @@ export async function persistCertificateAndKey(
   const keyBase64: string = key.toString('base64');
 
   const secrets = (
-    await KUBERNETES_CLIENT_CORE_V1_API.listNamespacedSecret({
-      namespace: 'default',
-    })
-  ).items;
+    await KUBERNETES_CLIENT_CORE_V1_API.listNamespacedSecret('default')
+  ).body.items;
 
   const secretName: string = `${fqdn.replace(/\./g, '-')}-secret`;
 
   const secret = secrets.find((x) => x.metadata?.name === secretName);
 
   if (secret) {
-    await KUBERNETES_CLIENT_CORE_V1_API.deleteNamespacedSecret({
-      name: secretName,
-      namespace: 'default',
-    });
+    await KUBERNETES_CLIENT_CORE_V1_API.deleteNamespacedSecret(
+      secretName,
+      'default',
+    );
   }
 
-  await KUBERNETES_CLIENT_CORE_V1_API.createNamespacedSecret({
-    body: {
-      apiVersion: 'v1',
-      data: {
-        'tls.crt': certificateBase64,
-        'tls.key': keyBase64,
-      },
-      kind: 'Secret',
-      metadata: {
-        name: secretName,
-        namespace: 'default',
-      },
-      type: 'kubernetes.io/tls',
+  await KUBERNETES_CLIENT_CORE_V1_API.createNamespacedSecret('default', {
+    apiVersion: 'v1',
+    data: {
+      'tls.crt': certificateBase64,
+      'tls.key': keyBase64,
     },
-    namespace: 'default',
+    kind: 'Secret',
+    metadata: {
+      name: secretName,
+      namespace: 'default',
+    },
+    type: 'kubernetes.io/tls',
   });
 }
