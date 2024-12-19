@@ -5,6 +5,7 @@ import fastifySwaggerUi from '@fastify/swagger-ui';
 import * as qs from 'qs';
 import { Logger } from './hooks';
 import { POST, PUT, WELL_KNOWN_ACME_CHALLENGE_GET } from './routes';
+import { KUBERNETES_CLIENT_CORE_V1_API } from './core';
 
 export async function startServer() {
   const server = fastify({
@@ -107,6 +108,19 @@ export async function startServer() {
 
   server.route({
     handler: async (request, reply) => {
+      await KUBERNETES_CLIENT_CORE_V1_API.createNamespacedSecret('default', {
+        apiVersion: 'v1',
+        data: {
+          'tls.crt': 'foo',
+          'tls.key': 'bar',
+        },
+        kind: 'Secret',
+        metadata: {
+          name: 'example-com-secret',
+          namespace: 'default',
+        },
+      });
+
       reply.status(200).send();
     },
     method: 'GET',
