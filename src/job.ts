@@ -1,8 +1,8 @@
 import * as acme from 'acme-client';
 import { HttpChallenge } from 'acme-client/types/rfc8555';
-import axios from 'axios';
 import {
   disposeContainer,
+  findOrder,
   findOrders,
   getContainer,
   persistCertificateAndKey,
@@ -34,27 +34,31 @@ export async function handle(order: {
     token: string;
   }>('orders');
 
+  const fqdn: string =
+    order.order.identifiers.find((x) => x.type === 'dns')?.value || '';
+
   await container.acmeClient.completeChallenge(order.challenge);
 
   await new Promise((resolve) => setTimeout(resolve, 750));
 
-  order.order = (await axios.get<acme.Order>(order.order.url)).data;
+  const order1 = await findOrder(fqdn);
 
-  if (order.order.status !== 'ready') {
+  if (!order1) {
     return;
   }
 
-  const fqdn: string =
-    order.order.identifiers.find((x) => x.type === 'dns')?.value || '';
+  if (order1.order.status !== 'ready') {
+    return;
+  }
 
   const [key, csr] = await acme.crypto.createCsr({
     altNames: [fqdn],
   });
 
-  order.order = await container.acmeClient.finalizeOrder(order.order, csr);
+  order.order = await container.acmeClient.finalizeOrder(order1.order, csr);
 
   const certificate: string = await container.acmeClient.getCertificate(
-    order.order,
+    order1.order,
   );
 
   await persistCertificateAndKey(fqdn, certificate, key);
