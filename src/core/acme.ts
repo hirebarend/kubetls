@@ -1,15 +1,91 @@
-import axios from 'axios';
 import * as acme from 'acme-client';
 import { HttpChallenge } from 'acme-client/types/rfc8555';
-import { ACME_CLIENT, getContainer } from '../core';
+import axios from 'axios';
+import { Collection } from 'mongodb';
+import { getContainer } from '../core';
 
-export async function createCertificateSigningRequest(fqdn: string): Promise<{
+export async function getAcmeClient(
+  collection: Collection<{
+    account: {
+      key: string;
+      url: string;
+    };
+    name: string;
+  }>,
+  name: string,
+) {
+  if (process.env.ACME_ACCOUNT_KEY && process.env.ACME_ACCOUNT_URL) {
+    return new acme.Client({
+      accountKey: atob(process.env.ACME_ACCOUNT_KEY),
+      accountUrl: process.env.ACME_ACCOUNT_URL,
+      backoffAttempts: 1,
+      directoryUrl: acme.directory.letsencrypt.production,
+    });
+  }
+
+  const document = await collection.findOne({ name });
+
+  if (!document) {
+    const emailAddress: string = process.env.ACME_EMAIL_ADDRESS || '';
+
+    const accountKey: string = (await acme.crypto.createPrivateKey()).toString(
+      'base64',
+    );
+
+    const client = new acme.Client({
+      accountKey: atob(accountKey),
+      backoffAttempts: 1,
+      directoryUrl: acme.directory.letsencrypt.production,
+    });
+
+    await client.createAccount({
+      contact: [`mailto:${emailAddress}`],
+      termsOfServiceAgreed: true,
+    });
+
+    const accountUrl: string = client.getAccountUrl();
+
+    await collection.insertOne({
+      account: {
+        key: accountKey,
+        url: accountUrl,
+      },
+      name,
+    });
+
+    return new acme.Client({
+      accountKey: atob(accountKey),
+      accountUrl: accountUrl,
+      backoffAttempts: 1,
+      directoryUrl: acme.directory.letsencrypt.production,
+    });
+  }
+
+  return new acme.Client({
+    accountKey: atob(document.account.key),
+    accountUrl: document.account.url,
+    backoffAttempts: 1,
+    directoryUrl: acme.directory.letsencrypt.production,
+  });
+}
+
+export async function createOrder(fqdn: string): Promise<{
   order: acme.Order;
   authorization: acme.Authorization;
   challenge: HttpChallenge;
   token: string;
 }> {
-  const order: acme.Order = await ACME_CLIENT.createOrder({
+  const container = await getContainer();
+
+  const collection = container.db.collection<{
+    fqdn: string;
+    order: string;
+    authorization: string;
+    challenge: string;
+    token: string;
+  }>('orders');
+
+  const order: acme.Order = await container.acmeClient.createOrder({
     identifiers: [
       {
         type: 'dns',
@@ -19,7 +95,7 @@ export async function createCertificateSigningRequest(fqdn: string): Promise<{
   });
 
   const authorizations: Array<acme.Authorization> =
-    await ACME_CLIENT.getAuthorizations(order);
+    await container.acmeClient.getAuthorizations(order);
 
   const authorization: acme.Authorization | null =
     authorizations.find((x) => x.identifier.type === 'dns') || null;
@@ -37,7 +113,15 @@ export async function createCertificateSigningRequest(fqdn: string): Promise<{
   }
 
   const token: string =
-    await ACME_CLIENT.getChallengeKeyAuthorization(challenge);
+    await container.acmeClient.getChallengeKeyAuthorization(challenge);
+
+  await collection.insertOne({
+    authorization: authorization.url,
+    challenge: challenge.url,
+    fqdn,
+    order: order.url,
+    token,
+  });
 
   return {
     order,
@@ -47,7 +131,7 @@ export async function createCertificateSigningRequest(fqdn: string): Promise<{
   };
 }
 
-export async function findCertificateSigninRequest(fqdn: string): Promise<{
+export async function findOrder(fqdn: string): Promise<{
   order: acme.Order;
   authorization: acme.Authorization;
   challenge: HttpChallenge;
@@ -61,7 +145,7 @@ export async function findCertificateSigninRequest(fqdn: string): Promise<{
     authorization: string;
     challenge: string;
     token: string;
-  }>('certificate-signing-requests');
+  }>('orders');
 
   const document = await collection.findOne({
     fqdn,
@@ -80,21 +164,14 @@ export async function findCertificateSigninRequest(fqdn: string): Promise<{
   };
 }
 
-export async function saveCertificateSigningRequest(certificateSigningRequest: {
-  order: acme.Order;
-  authorization: acme.Authorization;
-  challenge: HttpChallenge;
-  token: string;
-}): Promise<{
-  order: acme.Order;
-  authorization: acme.Authorization;
-  challenge: HttpChallenge;
-  token: string;
-}> {
-  const fqdn: string =
-    certificateSigningRequest.order.identifiers.find((x) => x.type === 'dns')
-      ?.value || '';
-
+export async function findOrders(): Promise<
+  Array<{
+    order: acme.Order;
+    authorization: acme.Authorization;
+    challenge: HttpChallenge;
+    token: string;
+  }>
+> {
   const container = await getContainer();
 
   const collection = container.db.collection<{
@@ -103,17 +180,22 @@ export async function saveCertificateSigningRequest(certificateSigningRequest: {
     authorization: string;
     challenge: string;
     token: string;
-  }>('certificate-signing-requests');
+  }>('orders');
 
-  await collection.deleteMany({ fqdn });
+  const documents = await collection.find({}).toArray();
 
-  await collection.insertOne({
-    authorization: certificateSigningRequest.authorization.url,
-    challenge: certificateSigningRequest.challenge.url,
-    fqdn,
-    order: certificateSigningRequest.order.url,
-    token: certificateSigningRequest.token,
-  });
+  const orders = [];
 
-  return certificateSigningRequest;
+  for (const document of documents) {
+    orders.push({
+      order: (await axios.get<acme.Order>(document.order)).data,
+      authorization: (
+        await axios.get<acme.Authorization>(document.authorization)
+      ).data,
+      challenge: (await axios.get<HttpChallenge>(document.challenge)).data,
+      token: document.token,
+    });
+  }
+
+  return orders;
 }

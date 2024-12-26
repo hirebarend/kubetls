@@ -1,6 +1,9 @@
+import * as acme from 'acme-client';
 import { Db, MongoClient } from 'mongodb';
+import { getAcmeClient } from './acme';
 
 export type Container = {
+  acmeClient: acme.Client;
   db: Db;
   mongoClient: MongoClient;
 };
@@ -19,6 +22,7 @@ export async function getContainer() {
   const db = mongoClient.db(process.env.MONGODB_DATABASE_NAME as string);
 
   container = {
+    acmeClient: await getAcmeClient(db.collection('acme-clients'), 'default'),
     db,
     mongoClient,
   };

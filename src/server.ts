@@ -4,7 +4,7 @@ import fastifySwagger from '@fastify/swagger';
 import fastifySwaggerUi from '@fastify/swagger-ui';
 import * as qs from 'qs';
 import { Logger } from './hooks';
-import { POST, PUT, WELL_KNOWN_ACME_CHALLENGE_GET } from './routes';
+import { ORDERS_POST, WELL_KNOWN_ACME_CHALLENGE_GET } from './routes';
 import { KUBERNETES_CLIENT_CORE_V1_API } from './core';
 
 export async function startServer() {
@@ -67,7 +67,7 @@ export async function startServer() {
         },
       },
       externalDocs: {
-        url: 'https://github.com/hirebarend/fastify-boilerplate',
+        url: 'https://github.com/hirebarend/kubetls',
         description: 'View Offical Documentation',
       },
     },
@@ -77,9 +77,7 @@ export async function startServer() {
     routePrefix: '/docs',
   });
 
-  server.route(POST);
-
-  server.route(PUT);
+  server.route(ORDERS_POST);
 
   server.route(WELL_KNOWN_ACME_CHALLENGE_GET);
 
@@ -108,20 +106,13 @@ export async function startServer() {
 
   server.route({
     handler: async (request, reply) => {
-      // await KUBERNETES_CLIENT_CORE_V1_API.createNamespacedSecret('default', {
-      //   apiVersion: 'v1',
-      //   data: {
-      //     'tls.crt': 'foo',
-      //     'tls.key': 'bar',
-      //   },
-      //   kind: 'Secret',
-      //   metadata: {
-      //     name: 'example-com-secret',
-      //     namespace: 'default',
-      //   },
-      // });
+      try {
+        await KUBERNETES_CLIENT_CORE_V1_API.listNamespacedSecret('default');
 
-      reply.status(200).send();
+        reply.status(200).send();
+      } catch {
+        reply.status(503).send();
+      }
     },
     method: 'GET',
     url: '/api/v1/ping',

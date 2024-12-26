@@ -36,6 +36,38 @@ data:
   {{ $key }}: {{ $value | b64enc | quote  }}
 {{- end }}
 ---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ .Release.Name }}-cron-job
+  annotations:
+    keel.sh/policy: force
+    keel.sh/trigger: poll
+    keel.sh/pollSchedule: "@every 5m"
+spec:
+  schedule: "*/5 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: {{ .Release.Name }}-service-account
+          containers:
+          - name: {{ .Release.Name }}
+            image: ghcr.io/{{ .Values.USERNAME }}/kubetls:main
+            imagePullPolicy: Always
+            resources:
+              requests:
+                memory: "256Mi"
+              limits:
+                memory: "256Mi"
+            env:
+            - name: JOB
+              value: "true"
+            envFrom:
+            - secretRef:
+                name: {{ .Release.Name }}-secret
+          restartPolicy: OnFailure
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
