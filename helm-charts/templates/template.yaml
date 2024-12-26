@@ -46,6 +46,8 @@ metadata:
     keel.sh/pollSchedule: "@every 5m"
 spec:
   schedule: "*/5 * * * *"
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
   jobTemplate:
     spec:
       template:
