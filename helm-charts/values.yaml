@@ -1,3 +1,6 @@
+ACME_ACCOUNT_KEY: ""
+ACME_ACCOUNT_URL: ""
+ACME_EMAIL_ADDRESS: ""
 HOST: "kubetls.example.com" # Replace with your host
 MONGODB_CONNECTION_STRING: "mongodb+srv://..." # Replace with your MongoDB connection string
 MONGODB_DATABASE_NAME: "kubetls" # Replace with your MongoDB database name

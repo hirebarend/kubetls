@@ -33,10 +33,10 @@ helm install kubetls ./helm-charts
 
 ## Usage
 
-### Create Certificate Signing Request
+### Create Order
 
 ```bash
-curl -X 'POST' 'https://kubetls.example.com/api/v1' -H 'accept: application/json' -H 'Content-Type: application/json' -d '{ "fqdn": "example.com" }'
+curl -X 'POST' 'https://kubetls.example.com/api/v1/orders' -H 'accept: application/json' -H 'Content-Type: application/json' -d '{ "fqdn": "example.com" }'
 ```
 
 ## Contributing
