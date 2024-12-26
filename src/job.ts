@@ -47,7 +47,7 @@ export async function handle(order: {
     return;
   }
 
-  if (order1.order.status !== 'ready') {
+  if (order1.order.status !== 'ready' && order1.order.status !== 'valid') {
     return;
   }
 
@@ -55,7 +55,9 @@ export async function handle(order: {
     altNames: [fqdn],
   });
 
-  order.order = await container.acmeClient.finalizeOrder(order1.order, csr);
+  if (order1.order.status === 'ready') {
+    order.order = await container.acmeClient.finalizeOrder(order1.order, csr);
+  }
 
   const certificate: string = await container.acmeClient.getCertificate(
     order1.order,
