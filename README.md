@@ -36,7 +36,7 @@ helm install kubetls ./helm-charts
 ### Create Order
 
 ```bash
-curl -X 'POST' 'https://kubetls.example.com/api/v1/orders' -H 'accept: application/json' -H 'Content-Type: application/json' -d '{ "fqdn": "example.com" }'
+curl -X 'POST' 'http://kubetls.example.com/api/v1/orders' -H 'accept: application/json' -H 'Content-Type: application/json' -d '{ "fqdn": "example.com" }'
 ```
 
 ## Contributing

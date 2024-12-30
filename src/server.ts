@@ -58,7 +58,7 @@ export async function startServer() {
         version: '0.1.0',
       },
       produces: ['application/json'],
-      schemes: process.env.HOST ? ['https', 'http'] : ['http'],
+      schemes: process.env.HOST ? ['http'] : ['http'],
       securityDefinitions: {
         apiKey: {
           type: 'apiKey',
