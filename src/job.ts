@@ -2,7 +2,6 @@ import * as acme from 'acme-client';
 import { HttpChallenge } from 'acme-client/types/rfc8555';
 import {
   disposeContainer,
-  findOrder,
   findOrders,
   getContainer,
   persistCertificateAndKey,
@@ -37,17 +36,11 @@ export async function handle(order: {
   const fqdn: string =
     order.order.identifiers.find((x) => x.type === 'dns')?.value || '';
 
-  await container.acmeClient.completeChallenge(order.challenge);
+  const challenge = await container.acmeClient.completeChallenge(
+    order.challenge,
+  );
 
-  await new Promise((resolve) => setTimeout(resolve, 750));
-
-  const order1 = await findOrder(fqdn);
-
-  if (!order1) {
-    return;
-  }
-
-  if (order1.order.status !== 'ready' && order1.order.status !== 'valid') {
+  if (challenge.status !== 'valid') {
     return;
   }
 
@@ -55,12 +48,10 @@ export async function handle(order: {
     altNames: [fqdn],
   });
 
-  if (order1.order.status === 'ready') {
-    order.order = await container.acmeClient.finalizeOrder(order1.order, csr);
-  }
+  order.order = await container.acmeClient.finalizeOrder(order.order, csr);
 
   const certificate: string = await container.acmeClient.getCertificate(
-    order1.order,
+    order.order,
   );
 
   await persistCertificateAndKey(fqdn, certificate, key);
